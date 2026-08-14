@@ -49,3 +49,8 @@ reports/*.md
 id_rsa*
 id_ed25519*
 .env
+
+# Next.js frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
