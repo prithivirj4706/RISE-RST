@@ -1,0 +1,76 @@
+# SentinelAudit — Linux demonstration target
+#
+# A deliberately misconfigured Ubuntu 22.04 host that exercises ALL ELEVEN
+# Linux rules, so a single audit produces a complete report rather than a
+# handful of UNKNOWNs.
+#
+#   DISPOSABLE TEST FIXTURE. Never run this anywhere reachable.
+#
+# Run it with NET_ADMIN so `iptables -S` can answer — without that capability
+# Docker blocks the read and CIS-3.5.1 correctly reports UNKNOWN:
+#
+#   docker build -f targets/Dockerfile.linux-demo -t sentinel-linux-demo targets/
+#   docker run -d --name sa-linux --cap-add=NET_ADMIN -p 2223:22 sentinel-linux-demo
+#   python3 main.py --target docker://sa-linux
+#
+# Expected: 0/100 (grade F) with findings against every rule below.
+
+FROM ubuntu:22.04
+
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      openssh-server sudo iproute2 iptables netcat-openbsd \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# CIS-5.2.10  SSH root login enabled            -> FAIL (CRITICAL)
+# CIS-5.2.11  SSH password authentication on    -> FAIL (HIGH)
+# ---------------------------------------------------------------------------
+RUN mkdir -p /run/sshd \
+ && printf 'PermitRootLogin yes\nPasswordAuthentication yes\n' >> /etc/ssh/sshd_config
+
+# ---------------------------------------------------------------------------
+# CIS-6.1.3   /etc/shadow world-readable        -> FAIL (HIGH)
+# CIS-6.1.2   /etc/passwd left correct          -> PASS (control case)
+# ---------------------------------------------------------------------------
+RUN chmod 644 /etc/shadow
+
+# ---------------------------------------------------------------------------
+# CIS-6.2.1   account with an empty password    -> FAIL (CRITICAL)
+# ---------------------------------------------------------------------------
+RUN useradd -m brokenacct \
+ && sed -i 's/^brokenacct:[^:]*:/brokenacct::/' /etc/shadow
+
+# ---------------------------------------------------------------------------
+# CIS-6.1.10  world-writable file in /etc       -> FAIL (HIGH)
+# ---------------------------------------------------------------------------
+RUN touch /etc/world-writable-example && chmod 666 /etc/world-writable-example
+
+# ---------------------------------------------------------------------------
+# CIS-5.3.4   blanket NOPASSWD sudo grant       -> FAIL (HIGH)
+# ---------------------------------------------------------------------------
+RUN echo 'deploy ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/90-deploy \
+ && chmod 440 /etc/sudoers.d/90-deploy
+
+# ---------------------------------------------------------------------------
+# CIS-5.4.1   weak minimum password length      -> FAIL (MEDIUM)
+# Ubuntu 22.04 ships PASS_MIN_LEN commented out, and `sed` exits 0 when it
+# matches nothing -- so delete and append rather than relying on substitution.
+# ---------------------------------------------------------------------------
+RUN sed -i '/^PASS_MIN_LEN/d' /etc/login.defs \
+ && echo 'PASS_MIN_LEN    4' >> /etc/login.defs
+
+# ---------------------------------------------------------------------------
+# CIS-1.9     automatic security updates OFF    -> FAIL (MEDIUM)
+# Written explicitly as "0" so the rule reaches a verdict instead of UNKNOWN.
+# ---------------------------------------------------------------------------
+RUN printf 'APT::Periodic::Update-Package-Lists "0";\nAPT::Periodic::Unattended-Upgrade "0";\n' \
+      > /etc/apt/apt.conf.d/20auto-upgrades
+
+# ---------------------------------------------------------------------------
+# CIS-3.5.1   no firewall (default ACCEPT)      -> FAIL (HIGH)  [needs NET_ADMIN]
+# CIS-3.2.1   service on a wildcard address     -> FAIL (MEDIUM)
+# 8080 is outside the expected set {22, 80, 443}, so it is reported for review.
+# ---------------------------------------------------------------------------
+EXPOSE 22 8080
+CMD ["/bin/sh", "-c", "nc -lk -p 8080 >/dev/null 2>&1 & exec /usr/sbin/sshd -D -e"]
