@@ -1,14 +1,49 @@
+# SENTINELAUDIT — Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
 .venv/
 venv/
+env/
+
+# pytest
+.pytest_cache/
+.cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# Audit output: evidence from real hosts, regenerated on every run.
-reports/
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Never commit credentials. Keys and API keys are read from the
-# environment or a path argument, never from a file in this repo.
+# Reports output (keep the directory, ignore generated files)
+reports/*.json
+reports/*.html
+reports/*.txt
+reports/*.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Credentials are NEVER committed. SSH keys arrive as a path argument
+# (--key / SENTINEL_SSH_KEY) and API keys from the environment only.
 *.pem
 *.key
 id_rsa*
