@@ -1,186 +1,192 @@
+/**
+ * POST /api/audit — return a real SentinelAudit report.
+ *
+ * This route does not audit anything itself. It runs the Python engine at the
+ * repository root and maps its report.json onto the shape this UI already
+ * expects, so every component renders unchanged.
+ *
+ * Why it works this way
+ * ---------------------
+ * The previous implementation re-implemented auditing in TypeScript and asked
+ * a language model to assign PASS/FAIL. Three problems disappear by delegating
+ * to the engine instead:
+ *
+ *   1. Verdicts are deterministic. PASS/FAIL/UNKNOWN comes from the engine's
+ *      parsers reading real captured output, never from a model. The engine
+ *      also emits a SHA-256 fingerprint over everything but the timestamp, so
+ *      two runs against an unchanged target are provably identical.
+ *   2. Commands come from a fixed allowlist validated read-only at import time
+ *      — a mutating command cannot even be defined. The `commands` field this
+ *      UI sends is therefore ignored rather than executed.
+ *   3. No credential reaches this process. Local and Docker targets need none;
+ *      SSH uses a key *path* read from the server environment.
+ *
+ * Target selection reuses the existing "Host / IP" field:
+ *
+ *   local | localhost | 127.0.0.1        → audit the machine running this app
+ *   docker://<name>   or  docker:<name>  → audit a local container
+ *   anything else                        → treated as an SSH host
+ */
+
+import { execFile } from "node:child_process"
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import path from "node:path"
+import { promisify } from "node:util"
+
 import { NextResponse } from "next/server"
-import { Client } from "ssh2"
-import { checkCommands, checkCommand } from "@/lib/command-safety"
-import { analyzeAudit, type CommandResult } from "@/lib/ai-analyze"
-import { PLATFORMS, type Platform } from "@/lib/audit-data"
+
+const run = promisify(execFile)
 
 export const runtime = "nodejs"
-export const maxDuration = 60
+export const maxDuration = 120
 
-type AuthMethod = "key" | "password"
+const AUDIT_TIMEOUT_MS = 100_000
+const MAX_BUFFER = 12 * 1024 * 1024
 
-type AuditRequest = {
-  platform: Platform
-  host: string
+/** Repo root — this app lives in <repo>/frontend. */
+const REPO_ROOT = process.env.SENTINEL_ROOT ?? path.resolve(process.cwd(), "..")
+const PYTHON = process.env.SENTINEL_PYTHON ?? "python3"
+/** Key path for SSH targets. A path only — never key material. */
+const SSH_KEY = process.env.SENTINEL_SSH_KEY ?? ""
+
+/** Only plain host / container tokens ever reach argv. */
+const SAFE = /^[A-Za-z0-9._@:-]{1,255}$/
+
+type Body = {
+  host?: string
   port?: number
-  username: string
-  authMethod: AuthMethod
+  username?: string
+  authMethod?: "key" | "password"
+  /** Accepted by the form, deliberately never forwarded. */
   password?: string
   privateKey?: string
   passphrase?: string
-  commands: string[]
+  commands?: string[]
 }
-
-const CONNECT_TIMEOUT_MS = 15_000
-const PER_COMMAND_TIMEOUT_MS = 12_000
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
 }
 
 export async function POST(req: Request) {
-  let body: AuditRequest
+  let body: Body
   try {
-    body = (await req.json()) as AuditRequest
+    body = (await req.json()) as Body
   } catch {
     return bad("Invalid JSON body")
   }
 
-  const { platform, host, username, authMethod, commands } = body
-  const port = Number(body.port) || 22
+  const raw = (body.host ?? "").trim()
+  if (!raw) return bad("Enter a target: 'local', 'docker://<container>', or a hostname.")
 
-  if (!platform || !(platform in PLATFORMS)) return bad("Unknown platform")
-  if (!host?.trim()) return bad("Host is required")
-  if (!username?.trim()) return bad("Username is required")
-  if (!Array.isArray(commands) || commands.length === 0) return bad("Select at least one command")
-  if (commands.length > 40) return bad("Too many commands")
+  let target: string
+  let transport: "local" | "docker" | "ssh"
 
-  if (authMethod === "password" && !body.password) return bad("Password is required")
-  if (authMethod === "key" && !body.privateKey?.trim()) return bad("Private key is required")
-
-  // Determine which commands are from the platform's trusted allowlist vs. custom.
-  const allowlist = new Set(PLATFORMS[platform].allowlist)
-  const toRun = commands.map((cmd) => ({ cmd: cmd.trim(), trusted: allowlist.has(cmd.trim()) }))
-
-  const safety = checkCommands(toRun)
-  if (!safety.ok) {
-    return bad(`Blocked unsafe command "${safety.cmd}": ${safety.reason}`, 422)
+  if (/^(local|localhost|127\.0\.0\.1)$/i.test(raw)) {
+    transport = "local"
+    target = "local"
+  } else if (/^docker:(\/\/)?/i.test(raw)) {
+    const name = raw.replace(/^docker:(\/\/)?/i, "").trim()
+    if (!name) return bad("Enter a container name, e.g. docker://sa-linux")
+    if (!SAFE.test(name)) return bad("Container name contains unsupported characters")
+    transport = "docker"
+    target = `docker://${name}`
+  } else {
+    if (!SAFE.test(raw)) return bad("Host contains unsupported characters")
+    transport = "ssh"
+    const user = (body.username ?? "").trim()
+    if (user && !SAFE.test(user)) return bad("Username contains unsupported characters")
+    target = user ? `${user}@${raw}` : raw
   }
 
-  // Connect and run.
-  const conn = new Client()
-
-  const results = await new Promise<CommandResult[] | { error: string }>((resolve) => {
-    const collected: CommandResult[] = []
-    let settled = false
-
-    const finish = (value: CommandResult[] | { error: string }) => {
-      if (settled) return
-      settled = true
-      try {
-        conn.end()
-      } catch {
-        /* noop */
-      }
-      resolve(value)
-    }
-
-    conn.on("ready", async () => {
-      try {
-        for (const { cmd, trusted } of toRun) {
-          // Re-check each command right before dispatch (defense in depth).
-          const check = checkCommand(cmd, trusted)
-          if (!check.safe) {
-            collected.push({ command: cmd, exitCode: null, stdout: "", stderr: `blocked: ${check.reason}` })
-            continue
-          }
-          const result = await runCommand(conn, cmd)
-          collected.push(result)
-        }
-        finish(collected)
-      } catch (err) {
-        finish({ error: err instanceof Error ? err.message : "Command execution failed" })
-      }
-    })
-
-    conn.on("error", (err) => {
-      finish({ error: `SSH connection failed: ${err.message}` })
-    })
-
-    conn.on("timeout", () => finish({ error: "SSH connection timed out" }))
-
-    try {
-      conn.connect({
-        host: host.trim(),
-        port,
-        username: username.trim(),
-        readyTimeout: CONNECT_TIMEOUT_MS,
-        ...(authMethod === "password"
-          ? { password: body.password }
-          : { privateKey: body.privateKey, passphrase: body.passphrase || undefined }),
-      })
-    } catch (err) {
-      finish({ error: err instanceof Error ? err.message : "Failed to start SSH connection" })
-    }
-  })
-
-  if ("error" in results) {
-    return NextResponse.json({ error: results.error }, { status: 502 })
-  }
-
-  // AI analysis of the real output.
-  let analysis
-  try {
-    analysis = await analyzeAudit(platform, results)
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error: `Analysis failed: ${err instanceof Error ? err.message : "unknown error"}`,
-        results,
-      },
-      { status: 502 },
+  if (transport === "ssh" && !SSH_KEY) {
+    return bad(
+      "SSH targets need key-based authentication. The engine runs with " +
+        "PasswordAuthentication=no, so a typed password or pasted key cannot be " +
+        "used. Set SENTINEL_SSH_KEY to a private-key path on the server and " +
+        "restart, or target 'local' or 'docker://<container>' instead.",
     )
   }
 
-  return NextResponse.json({
-    target: {
-      host: host.trim(),
-      transport: authMethod === "key" ? "SSH (key-based)" : "SSH (password)",
-      user: username.trim(),
-      port,
-    },
-    results,
-    findings: analysis.findings,
-    fixList: analysis.fixList,
-  })
-}
+  const args = ["main.py", "--target", target, "--quiet"]
+  if (transport === "ssh") {
+    const port = Number(body.port) || 22
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return bad("Invalid port")
+    args.push("--port", String(port), "--key", SSH_KEY)
+  }
 
-function runCommand(conn: Client, command: string): Promise<CommandResult> {
-  return new Promise((resolve) => {
-    let stdout = ""
-    let stderr = ""
-    let done = false
+  const outDir = await mkdtemp(path.join(tmpdir(), "sentinel-web-"))
+  args.push("--out", outDir)
 
-    const timer = setTimeout(() => {
-      if (!done) {
-        done = true
-        resolve({ command, exitCode: null, stdout, stderr: stderr + "\n[timed out]" })
-      }
-    }, PER_COMMAND_TIMEOUT_MS)
-
-    conn.exec(command, { pty: false }, (err, stream) => {
-      if (err) {
-        clearTimeout(timer)
-        if (!done) {
-          done = true
-          resolve({ command, exitCode: null, stdout: "", stderr: err.message })
-        }
-        return
-      }
-      stream
-        .on("close", (code: number) => {
-          clearTimeout(timer)
-          if (!done) {
-            done = true
-            resolve({ command, exitCode: code ?? null, stdout, stderr })
-          }
-        })
-        .on("data", (d: Buffer) => {
-          stdout += d.toString()
-        })
-      stream.stderr.on("data", (d: Buffer) => {
-        stderr += d.toString()
+  try {
+    try {
+      // execFile with an argv array: no shell, so nothing here is injectable.
+      await run(PYTHON, args, {
+        cwd: REPO_ROOT,
+        timeout: AUDIT_TIMEOUT_MS,
+        maxBuffer: MAX_BUFFER,
       })
+    } catch (err) {
+      const e = err as { code?: number; stderr?: string; killed?: boolean; message?: string }
+      if (e.killed) return bad("The audit timed out before the engine finished.", 504)
+      const stderr = (e.stderr ?? "").trim()
+      const first = stderr.split("\n").find((l) => l.trim()) ?? e.message ?? "unknown error"
+      // The engine's exit codes are meaningful — surface them faithfully.
+      if (e.code === 2) return bad(first.replace(/^connector error:\s*/, ""), 502)
+      if (e.code === 3) return bad("Could not identify the target's OS: " + first, 502)
+      if (e.code === 4) return bad("Configuration error: " + first)
+      return bad("Audit failed: " + first, 500)
+    }
+
+    const files = (await readdir(outDir)).filter(
+      (f) => f.startsWith("audit_") && f.endsWith(".json"),
+    )
+    if (files.length === 0) return bad("The engine produced no report.", 500)
+    files.sort()
+    const report = JSON.parse(await readFile(path.join(outDir, files[files.length - 1]), "utf8"))
+
+    return NextResponse.json({
+      target: {
+        host: report.target?.label ?? target,
+        transport: report.target?.transport ?? transport,
+        user: report.target?.remote_user ?? report.target?.user ?? "",
+        port: Number(report.target?.port) || (transport === "ssh" ? Number(body.port) || 22 : 0),
+      },
+      results: (report.commands ?? []).map((c: Record<string, unknown>) => ({
+        command: c.command,
+        exitCode: c.exit_code ?? null,
+        stdout: c.stdout ?? "",
+        stderr: c.stderr ?? "",
+      })),
+      findings: (report.findings ?? []).map((f: Record<string, unknown>) => ({
+        rule_id: f.rule_id,
+        title: f.title,
+        category: f.category,
+        command: f.command,
+        status: f.status,
+        // UNKNOWN carries the reason the engine logged, so the UI shows why.
+        evidence:
+          f.status === "UNKNOWN" && f.reason ? String(f.reason) : String(f.evidence ?? ""),
+        severity_hint: String(f.severity ?? "low").toLowerCase(),
+      })),
+      fixList: (report.fix_list ?? []).map((f: Record<string, unknown>) => ({
+        priority: f.priority,
+        rule_id: f.rule_id,
+        category: f.category,
+        finding: f.finding,
+        why_it_matters: f.why_it_matters,
+        fix_command: f.fix_command,
+        evidence_ref: f.evidence_ref,
+        severity: String(f.severity ?? "low").toLowerCase(),
+      })),
+      // Extras this UI does not render today, but which prove the run is real.
+      platform: report.platform,
+      fingerprint: report.fingerprint,
+      score: report.score,
+      summary: report.summary,
     })
-  })
+  } finally {
+    await rm(outDir, { recursive: true, force: true }).catch(() => {})
+  }
 }
