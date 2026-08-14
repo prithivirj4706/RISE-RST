@@ -1,0 +1,684 @@
+{
+  "schema_version": "1.0",
+  "tool_version": "1.0.0",
+  "generated_at": "2026-08-14T06:53:31Z",
+  "fingerprint": "0345692fcc663946b1b327a4be0191b8002d489ec7d440585ed61cb1e489ebd4",
+  "platform": "linux",
+  "target": {
+    "transport": "docker",
+    "label": "docker://sa-linux",
+    "container": "sa-linux",
+    "image": "sentinel-linux-demo",
+    "remote_user": "root"
+  },
+  "summary": {
+    "rules_evaluated": 11,
+    "passed": 1,
+    "failed": 10,
+    "unknown": 0,
+    "failed_by_severity": {
+      "CRITICAL": 2,
+      "HIGH": 5,
+      "MEDIUM": 3,
+      "LOW": 0
+    }
+  },
+  "score": {
+    "value": 0,
+    "max": 100,
+    "grade": "F",
+    "sufficient_coverage": true,
+    "points_deducted": 128,
+    "coverage_percent": 100.0,
+    "coverage_note": "11 of 11 rules reached a PASS/FAIL verdict; 0 returned UNKNOWN and are excluded from the score.",
+    "weights": {
+      "CRITICAL": 25,
+      "HIGH": 12,
+      "MEDIUM": 6,
+      "LOW": 2
+    },
+    "deductions": [
+      {
+        "rule_id": "CIS-5.2.10",
+        "severity": "CRITICAL",
+        "points": 25
+      },
+      {
+        "rule_id": "CIS-6.2.1",
+        "severity": "CRITICAL",
+        "points": 25
+      },
+      {
+        "rule_id": "CIS-3.5.1",
+        "severity": "HIGH",
+        "points": 12
+      },
+      {
+        "rule_id": "CIS-5.2.11",
+        "severity": "HIGH",
+        "points": 12
+      },
+      {
+        "rule_id": "CIS-5.3.4",
+        "severity": "HIGH",
+        "points": 12
+      },
+      {
+        "rule_id": "CIS-6.1.10",
+        "severity": "HIGH",
+        "points": 12
+      },
+      {
+        "rule_id": "CIS-6.1.3",
+        "severity": "HIGH",
+        "points": 12
+      },
+      {
+        "rule_id": "CIS-1.9",
+        "severity": "MEDIUM",
+        "points": 6
+      },
+      {
+        "rule_id": "CIS-3.2.1",
+        "severity": "MEDIUM",
+        "points": 6
+      },
+      {
+        "rule_id": "CIS-5.4.1",
+        "severity": "MEDIUM",
+        "points": 6
+      }
+    ]
+  },
+  "findings": [
+    {
+      "rule_id": "CIS-5.2.10",
+      "control_id": "SSH-001",
+      "platform": "linux",
+      "title": "SSH root login disabled",
+      "category": "SSH hardening",
+      "status": "FAIL",
+      "severity": "CRITICAL",
+      "severity_hint": "critical",
+      "command": "sshd -T",
+      "command_id": "linux.sshd_effective",
+      "evidence": "permitrootlogin yes",
+      "remediation": "sudo sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && sudo sshd -t && sudo systemctl reload sshd",
+      "rationale": "A leaked or brute-forced root credential grants full remote access with no separate privilege-escalation step and no attribution to a named user.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-6.2.1",
+      "control_id": "ACCT-001",
+      "platform": "linux",
+      "title": "No accounts have empty passwords",
+      "category": "Account hygiene",
+      "status": "FAIL",
+      "severity": "CRITICAL",
+      "severity_hint": "critical",
+      "command": "awk -F: '($2 == \"\") { print $1 }' /etc/shadow",
+      "command_id": "linux.empty_passwords",
+      "evidence": "accounts with an empty password hash: brokenacct",
+      "remediation": "sudo passwd -l <account>   # run per account listed in the evidence",
+      "rationale": "An account with an empty password hash can be used for local login with no credential at all, and often for su into other accounts.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-3.5.1",
+      "control_id": "FW-001",
+      "platform": "linux",
+      "title": "Host firewall is active",
+      "category": "Network exposure",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "severity_hint": "high",
+      "command": "iptables -S",
+      "command_id": "linux.iptables_rules",
+      "evidence": "-P FORWARD ACCEPT\n-P INPUT ACCEPT\n-P OUTPUT ACCEPT",
+      "remediation": "sudo ufw enable   # or: sudo systemctl enable --now firewalld",
+      "rationale": "Without a host firewall every listening service is reachable from any network the host is attached to, including services the operator does not know are running.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-5.2.11",
+      "control_id": "SSH-002",
+      "platform": "linux",
+      "title": "SSH password authentication disabled",
+      "category": "SSH hardening",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "severity_hint": "high",
+      "command": "sshd -T",
+      "command_id": "linux.sshd_effective",
+      "evidence": "passwordauthentication yes",
+      "remediation": "sudo sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && sudo sshd -t && sudo systemctl reload sshd",
+      "rationale": "Password authentication exposes every account to online guessing. Key-based authentication removes that attack surface entirely.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-5.3.4",
+      "control_id": "SUDO-001",
+      "platform": "linux",
+      "title": "sudoers contains no blanket NOPASSWD grant",
+      "category": "Privilege escalation",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "severity_hint": "high",
+      "command": "cat /etc/sudoers",
+      "command_id": "linux.sudoers",
+      "evidence": "/etc/sudoers.d: deploy ALL=(ALL) NOPASSWD: ALL",
+      "remediation": "sudo visudo   # remove the NOPASSWD entries shown in the evidence, or scope them to specific commands",
+      "rationale": "A NOPASSWD grant removes the re-authentication step, so any process running as that user -- including a hijacked shell -- becomes root without a credential.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-6.1.10",
+      "control_id": "FS-002",
+      "platform": "linux",
+      "title": "No world-writable files in sensitive system paths",
+      "category": "Filesystem permissions",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "severity_hint": "high",
+      "command": "find /etc /usr/bin /usr/sbin /usr/local/bin -xdev -type f -perm -0002 -print",
+      "command_id": "linux.world_writable",
+      "evidence": "/etc/world-writable-example",
+      "remediation": "sudo chmod o-w <path>   # run per file listed in the evidence",
+      "rationale": "Any local user can replace the contents of a world-writable file in a system path, turning a routine execution into privilege escalation.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-6.1.3",
+      "control_id": "FS-003",
+      "platform": "linux",
+      "title": "/etc/shadow ownership and permissions are correct",
+      "category": "Filesystem permissions",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "severity_hint": "high",
+      "command": "stat -c '%n %a %U %G' /etc/shadow",
+      "command_id": "linux.stat_shadow",
+      "evidence": "/etc/shadow mode=0644 owner=root group=shadow",
+      "remediation": "sudo chown root:shadow /etc/shadow && sudo chmod 640 /etc/shadow",
+      "rationale": "/etc/shadow holds password hashes. Any read access by a non-root user turns into offline cracking of every account on the host.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-1.9",
+      "control_id": "UPD-001",
+      "platform": "linux",
+      "title": "Automatic security updates are enabled",
+      "category": "Patch management",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "severity_hint": "medium",
+      "command": "cat /etc/apt/apt.conf.d/20auto-upgrades",
+      "command_id": "linux.apt_auto_upgrades",
+      "evidence": "APT::Periodic::Unattended-Upgrade \"0\";",
+      "remediation": "sudo apt-get install -y unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
+      "rationale": "Most host compromises use a vulnerability with a patch already shipped. Unapplied security updates are the gap being exploited.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-3.2.1",
+      "control_id": "NET-001",
+      "platform": "linux",
+      "title": "No unexpected service listens on all interfaces",
+      "category": "Network exposure",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "severity_hint": "medium",
+      "command": "ss -tulnH",
+      "command_id": "linux.listening",
+      "evidence": "listening on all interfaces:\ntcp 0.0.0.0:8080",
+      "remediation": "Bind the service to 127.0.0.1 in its own configuration, or block the port: sudo ufw deny <port>",
+      "rationale": "A service bound to 0.0.0.0 is reachable from every network the host touches. Binding to localhost limits the blast radius to the host.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-5.4.1",
+      "control_id": "PWD-001",
+      "platform": "linux",
+      "title": "Minimum password length policy is set",
+      "category": "Authentication policy",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "severity_hint": "medium",
+      "command": "cat /etc/login.defs",
+      "command_id": "linux.login_defs",
+      "evidence": "/etc/login.defs: PASS_MIN_LEN 4\n/etc/login.defs: PASS_MAX_DAYS 99999",
+      "remediation": "sudo sed -i 's/^#\\?\\s*minlen.*/minlen = 14/' /etc/security/pwquality.conf",
+      "rationale": "Without an enforced minimum length, a single short password on any account undermines every other control on the host.",
+      "reason": null
+    },
+    {
+      "rule_id": "CIS-6.1.2",
+      "control_id": "FS-001",
+      "platform": "linux",
+      "title": "/etc/passwd ownership and permissions are correct",
+      "category": "Filesystem permissions",
+      "status": "PASS",
+      "severity": "MEDIUM",
+      "severity_hint": "medium",
+      "command": "stat -c '%n %a %U %G' /etc/passwd",
+      "command_id": "linux.stat_passwd",
+      "evidence": "/etc/passwd mode=0644 owner=root group=root",
+      "remediation": "sudo chown root:root /etc/passwd && sudo chmod 644 /etc/passwd",
+      "rationale": "A writable /etc/passwd lets a local user add an account or change a UID to 0.",
+      "reason": null
+    }
+  ],
+  "fix_list": [
+    {
+      "priority": 1,
+      "rule_id": "CIS-5.2.10",
+      "category": "SSH hardening",
+      "finding": "SSH root login disabled failed. Observed: permitrootlogin yes",
+      "why_it_matters": "A leaked or brute-forced root credential grants full remote access with no separate privilege-escalation step and no attribution to a named user.",
+      "fix_command": "sudo sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && sudo sshd -t && sudo systemctl reload sshd",
+      "evidence_ref": "CIS-5.2.10",
+      "severity": "CRITICAL",
+      "evidence": "permitrootlogin yes",
+      "command": "sshd -T",
+      "explanation_source": "static"
+    },
+    {
+      "priority": 2,
+      "rule_id": "CIS-6.2.1",
+      "category": "Account hygiene",
+      "finding": "No accounts have empty passwords failed. Observed: accounts with an empty password hash: brokenacct",
+      "why_it_matters": "An account with an empty password hash can be used for local login with no credential at all, and often for su into other accounts.",
+      "fix_command": "sudo passwd -l <account>   # run per account listed in the evidence",
+      "evidence_ref": "CIS-6.2.1",
+      "severity": "CRITICAL",
+      "evidence": "accounts with an empty password hash: brokenacct",
+      "command": "awk -F: '($2 == \"\") { print $1 }' /etc/shadow",
+      "explanation_source": "static"
+    },
+    {
+      "priority": 3,
+      "rule_id": "CIS-3.5.1",
+      "category": "Network exposure",
+      "finding": "Host firewall is active failed. Observed: -P FORWARD ACCEPT",
+      "why_it_matters": "Without a host firewall every listening service is reachable from any network the host is attached to, including services the operator does not know are running.",
+      "fix_command": "sudo ufw enable   # or: sudo systemctl enable --now firewalld",
+      "evidence_ref": "CIS-3.5.1",
+      "severity": "HIGH",
+      "evidence": "-P FORWARD ACCEPT\n-P INPUT ACCEPT\n-P OUTPUT ACCEPT",
+      "command": "iptables -S",
+      "explanation_source": "static"
+    },
+    {
+      "priority": 4,
+      "rule_id": "CIS-5.2.11",
+      "category": "SSH hardening",
+      "finding": "SSH password authentication disabled failed. Observed: passwordauthentication yes",
+      "why_it_matters": "Password authentication exposes every account to online guessing. Key-based authentication removes that attack surface entirely.",
+      "fix_command": "sudo sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && sudo sshd -t && sudo systemctl reload sshd",
+      "evidence_ref": "CIS-5.2.11",
+      "severity": "HIGH",
+      "evidence": "passwordauthentication yes",
+      "command": "sshd -T",
+      "explanation_source": "static"
+    },
+    {
+      "priority": 5,
+      "rule_id": "CIS-5.3.4",
+      "category": "Privilege escalation",
+      "finding": "sudoers contains no blanket NOPASSWD grant failed. Observed: /etc/sudoers.d: deploy ALL=(ALL) NOPASSWD: ALL",
+      "why_it_matters": "A NOPASSWD grant removes the re-authentication step, so any process running as that user -- including a hijacked shell -- becomes root without a credential.",
+      "fix_command": "sudo visudo   # remove the NOPASSWD entries shown in the evidence, or scope them to specific commands",
+      "evidence_ref": "CIS-5.3.4",
+      "severity": "HIGH",
+      "evidence": "/etc/sudoers.d: deploy ALL=(ALL) NOPASSWD: ALL",
+      "command": "cat /etc/sudoers",
+      "explanation_source": "static"
+    },
+    {
+      "priority": 6,
+      "rule_id": "CIS-6.1.10",
+      "category": "Filesystem permissions",
+      "finding": "No world-writable files in sensitive system paths failed. Observed: /etc/world-writable-example",
+      "why_it_matters": "Any local user can replace the contents of a world-writable file in a system path, turning a routine execution into privilege escalation.",
+      "fix_command": "sudo chmod o-w <path>   # run per file listed in the evidence",
+      "evidence_ref": "CIS-6.1.10",
+      "severity": "HIGH",
+      "evidence": "/etc/world-writable-example",
+      "command": "find /etc /usr/bin /usr/sbin /usr/local/bin -xdev -type f -perm -0002 -print",
+      "explanation_source": "static"
+    },
+    {
+      "priority": 7,
+      "rule_id": "CIS-6.1.3",
+      "category": "Filesystem permissions",
+      "finding": "/etc/shadow ownership and permissions are correct failed. Observed: /etc/shadow mode=0644 owner=root group=shadow",
+      "why_it_matters": "/etc/shadow holds password hashes. Any read access by a non-root user turns into offline cracking of every account on the host.",
+      "fix_command": "sudo chown root:shadow /etc/shadow && sudo chmod 640 /etc/shadow",
+      "evidence_ref": "CIS-6.1.3",
+      "severity": "HIGH",
+      "evidence": "/etc/shadow mode=0644 owner=root group=shadow",
+      "command": "stat -c '%n %a %U %G' /etc/shadow",
+      "explanation_source": "static"
+    },
+    {
+      "priority": 8,
+      "rule_id": "CIS-1.9",
+      "category": "Patch management",
+      "finding": "Automatic security updates are enabled failed. Observed: APT::Periodic::Unattended-Upgrade \"0\";",
+      "why_it_matters": "Most host compromises use a vulnerability with a patch already shipped. Unapplied security updates are the gap being exploited.",
+      "fix_command": "sudo apt-get install -y unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
+      "evidence_ref": "CIS-1.9",
+      "severity": "MEDIUM",
+      "evidence": "APT::Periodic::Unattended-Upgrade \"0\";",
+      "command": "cat /etc/apt/apt.conf.d/20auto-upgrades",
+      "explanation_source": "static"
+    },
+    {
+      "priority": 9,
+      "rule_id": "CIS-3.2.1",
+      "category": "Network exposure",
+      "finding": "No unexpected service listens on all interfaces failed. Observed: listening on all interfaces:",
+      "why_it_matters": "A service bound to 0.0.0.0 is reachable from every network the host touches. Binding to localhost limits the blast radius to the host.",
+      "fix_command": "Bind the service to 127.0.0.1 in its own configuration, or block the port: sudo ufw deny <port>",
+      "evidence_ref": "CIS-3.2.1",
+      "severity": "MEDIUM",
+      "evidence": "listening on all interfaces:\ntcp 0.0.0.0:8080",
+      "command": "ss -tulnH",
+      "explanation_source": "static"
+    },
+    {
+      "priority": 10,
+      "rule_id": "CIS-5.4.1",
+      "category": "Authentication policy",
+      "finding": "Minimum password length policy is set failed. Observed: /etc/login.defs: PASS_MIN_LEN 4",
+      "why_it_matters": "Without an enforced minimum length, a single short password on any account undermines every other control on the host.",
+      "fix_command": "sudo sed -i 's/^#\\?\\s*minlen.*/minlen = 14/' /etc/security/pwquality.conf",
+      "evidence_ref": "CIS-5.4.1",
+      "severity": "MEDIUM",
+      "evidence": "/etc/login.defs: PASS_MIN_LEN 4\n/etc/login.defs: PASS_MAX_DAYS 99999",
+      "command": "cat /etc/login.defs",
+      "explanation_source": "static"
+    }
+  ],
+  "commands": [
+    {
+      "command_id": "linux.apt_auto_upgrades",
+      "command": "cat /etc/apt/apt.conf.d/20auto-upgrades",
+      "argv": [
+        "cat",
+        "/etc/apt/apt.conf.d/20auto-upgrades"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "APT::Periodic::Update-Package-Lists \"0\";\nAPT::Periodic::Unattended-Upgrade \"0\";",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.dnf_automatic_unit",
+      "command": "systemctl is-enabled dnf-automatic.timer",
+      "argv": [
+        "systemctl",
+        "is-enabled",
+        "dnf-automatic.timer"
+      ],
+      "exit_code": 127,
+      "available": false,
+      "stdout": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"systemctl\": executable file not found in $PATH",
+      "stderr": "",
+      "error": "binary not available on target"
+    },
+    {
+      "command_id": "linux.empty_passwords",
+      "command": "awk -F: '($2 == \"\") { print $1 }' /etc/shadow",
+      "argv": [
+        "awk",
+        "-F:",
+        "($2 == \"\") { print $1 }",
+        "/etc/shadow"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "brokenacct",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.firewalld_state",
+      "command": "firewall-cmd --state",
+      "argv": [
+        "firewall-cmd",
+        "--state"
+      ],
+      "exit_code": 127,
+      "available": false,
+      "stdout": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"firewall-cmd\": executable file not found in $PATH",
+      "stderr": "",
+      "error": "binary not available on target"
+    },
+    {
+      "command_id": "linux.iptables_rules",
+      "command": "iptables -S",
+      "argv": [
+        "iptables",
+        "-S"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "-P INPUT ACCEPT\n-P FORWARD ACCEPT\n-P OUTPUT ACCEPT",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.listening",
+      "command": "ss -tulnH",
+      "argv": [
+        "ss",
+        "-tulnH"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "tcp LISTEN 0      128    0.0.0.0:22   0.0.0.0:*\ntcp LISTEN 0      1      0.0.0.0:8080 0.0.0.0:*\ntcp LISTEN 0      128       [::]:22      [::]:*",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.listening_fallback",
+      "command": "netstat -tuln",
+      "argv": [
+        "netstat",
+        "-tuln"
+      ],
+      "exit_code": 127,
+      "available": false,
+      "stdout": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"netstat\": executable file not found in $PATH",
+      "stderr": "",
+      "error": "binary not available on target"
+    },
+    {
+      "command_id": "linux.login_defs",
+      "command": "cat /etc/login.defs",
+      "argv": [
+        "cat",
+        "/etc/login.defs"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "#\n# /etc/login.defs - Configuration control definitions for the login package.\n#\n# Three items must be defined:  MAIL_DIR, ENV_SUPATH, and ENV_PATH.\n# If unspecified, some arbitrary (and possibly incorrect) value will\n# be assumed.  All other items are optional - if not specified then\n# the described action or option will be inhibited.\n#\n# Comment lines (lines beginning with \"#\") and blank lines are ignored.\n#\n# Modified for Linux.  --marekm\n\n# REQUIRED for useradd/userdel/usermod\n#   Directory where mailboxes reside, _or_ name of file, relative to the\n#   home directory.  If you _do_ define MAIL_DIR and MAIL_FILE,\n#   MAIL_DIR takes precedence.\n#\n#   Essentially:\n#      - MAIL_DIR defines the location of users mail spool files\n#        (for mbox use) by appending the username to MAIL_DIR as defined\n#        below.\n#      - MAIL_FILE defines the location of the users mail spool files as the\n#        fully-qualified filename obtained by prepending the user home\n#        directory before $MAIL_FILE\n#\n# NOTE: This is no more used for setting up users MAIL environment variable\n#       which is, starting from shadow 4.0.12-1 in Debian, entirely the\n#       job of the pam_mail PAM modules\n#       See default PAM configuration files provided for\n#       login, su, etc.\n#\n# This is a temporary situation: setting these variables will soon\n# move to /etc/default/useradd and the variables will then be\n# no more supported\nMAIL_DIR        /var/mail\n#MAIL_FILE      .mail\n\n#\n# Enable logging and display of /var/log/faillog login failure info.\n# This option conflicts with the pam_tally PAM module.\n#\nFAILLOG_ENAB\t\tyes\n\n#\n# Enable display of unknown usernames when login failures are recorded.\n#\n# WARNING: Unknown usernames may become world readable. \n# See #290803 and #298773 for details about how this could become a security\n# concern\nLOG_UNKFAIL_ENAB\tno\n\n#\n# Enable logging of successful logins\n#\nLOG_OK_LOGINS\t\tno\n\n#\n# Enable \"syslog\" logging of su activity - in addition to sulog file logging.\n# SYSLOG_SG_ENAB does the same for newgrp and sg.\n#\nSYSLOG_SU_ENAB\t\tyes\nSYSLOG_SG_ENAB\t\tyes\n\n#\n# If defined, all su activity is logged to this file.\n#\n#SULOG_FILE\t/var/log/sulog\n\n#\n# If defined, file which maps tty line to TERM environment parameter.\n# Each line of the file is in a format something like \"vt100  tty01\".\n#\n#TTYTYPE_FILE\t/etc/ttytype\n\n#\n# If defined, login failures will be logged here in a utmp format\n# last, when invoked as lastb, will read /var/log/btmp, so...\n#\nFTMP_FILE\t/var/log/btmp\n\n#\n# If defined, the command name to display when running \"su -\".  For\n# example, if this is defined as \"su\" then a \"ps\" will display the\n# command is \"-su\".  If not defined, then \"ps\" would display the\n# name of the shell actually being run, e.g. something like \"-sh\".\n#\nSU_NAME\t\tsu\n\n#\n# If defined, file which inhibits all the usual chatter during the login\n# sequence.  If a full pathname, then hushed mode will be enabled if the\n# user's name or shell are found in the file.  If not a full pathname, then\n# hushed mode will be enabled if the file exists in the user's home directory.\n#\nHUSHLOGIN_FILE\t.hushlogin\n#HUSHLOGIN_FILE\t/etc/hushlogins\n\n#\n# *REQUIRED*  The default PATH settings, for superuser and normal users.\n#\n# (they are minimal, add the rest in the shell startup files)\nENV_SUPATH\tPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nENV_PATH\tPATH=/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games\n\n#\n# Terminal permissions\n#\n#\tTTYGROUP\tLogin tty will be assigned this group ownership.\n#\tTTYPERM\t\tLogin tty will be set to this permission.\n#\n# If you have a \"write\" program which is \"setgid\" to a special group\n# which owns the terminals, define TTYGROUP to the group number and\n# TTYPERM to 0620.  Otherwise leave TTYGROUP commented out and assign\n# TTYPERM to either 622 or 600.\n#\n# In Debian /usr/bin/bsd-write or similar programs are setgid tty\n# However, the default and recommended value for TTYPERM is still 0600\n# to not allow anyone to write to anyone else console or terminal\n\n# Users can still allow other people to write them by issuing \n# the \"mesg y\" command.\n\nTTYGROUP\ttty\nTTYPERM\t\t0600\n\n#\n# Login configuration initializations:\n#\n#\tERASECHAR\tTerminal ERASE character ('\\010' = backspace).\n#\tKILLCHAR\tTerminal KILL character ('\\025' = CTRL/U).\n#\tUMASK\t\tDefault \"umask\" value.\n#\n# The ERASECHAR and KILLCHAR are used only on System V machines.\n# \n# UMASK is the default umask value for pam_umask and is used by\n# useradd and newusers to set the mode of the new home directories.\n# 022 is the \"historical\" value in Debian for UMASK\n# 027, or even 077, could be considered better for privacy\n# There is no One True Answer here : each sysadmin must make up his/her\n# mind.\n#\n# If USERGROUPS_ENAB is set to \"yes\", that will modify this UMASK default value\n# for private user groups, i. e. the uid is the same as gid, and username is\n# the same as the primary group name: for these, the user permissions will be\n# used as group permissions, e. g. 022 will become 002.\n#\n# Prefix these values with \"0\" to get octal, \"0x\" to get hexadecimal.\n#\nERASECHAR\t0177\nKILLCHAR\t025\nUMASK\t\t022\n\n# HOME_MODE is used by useradd(8) and newusers(8) to set the mode for new\n# home directories.\n# If HOME_MODE is not set, the value of UMASK is used to create the mode.\nHOME_MODE\t0750\n\n#\n# Password aging controls:\n#\n#\tPASS_MAX_DAYS\tMaximum number of days a password may be used.\n#\tPASS_MIN_DAYS\tMinimum number of days allowed between password changes.\n#\tPASS_WARN_AGE\tNumber of days warning given before a password expires.\n#\nPASS_MAX_DAYS\t99999\nPASS_MIN_DAYS\t0\nPASS_WARN_AGE\t7\n\n#\n# Min/max values for automatic uid selection in useradd\n#\nUID_MIN\t\t\t 1000\nUID_MAX\t\t\t60000\n# System accounts\n#SYS_UID_MIN\t\t  100\n#SYS_UID_MAX\t\t  999\n\n#\n# Min/max values for automatic gid selection in groupadd\n#\nGID_MIN\t\t\t 1000\nGID_MAX\t\t\t60000\n# System accounts\n#SYS_GID_MIN\t\t  100\n#SYS_GID_MAX\t\t  999\n\n#\n# Max number of login retries if password is bad. This will most likely be\n# overriden by PAM, since the default pam_unix module has it's own built\n# in of 3 retries. However, this is a safe fallback in case you are using\n# an authentication module that does not enforce PAM_MAXTRIES.\n#\nLOGIN_RETRIES\t\t5\n\n#\n# Max time in seconds for login\n#\nLOGIN_TIMEOUT\t\t60\n\n#\n# Which fields may be changed by regular users using chfn - use\n# any combination of letters \"frwh\" (full name, room number, work\n# phone, home phone).  If not defined, no changes are allowed.\n# For backward compatibility, \"yes\" = \"rwh\" and \"no\" = \"frwh\".\n# \nCHFN_RESTRICT\t\trwh\n\n#\n# Should login be allowed if we can't cd to the home directory?\n# Default in no.\n#\nDEFAULT_HOME\tyes\n\n#\n# If defined, this command is run when removing a user.\n# It should remove any at/cron/print jobs etc. owned by\n# the user to be removed (passed as the first argument).\n#\n#USERDEL_CMD\t/usr/sbin/userdel_local\n\n#\n# Enable setting of the umask group bits to be the same as owner bits\n# (examples: 022 -> 002, 077 -> 007) for non-root users, if the uid is\n# the same as gid, and username is the same as the primary group name.\n#\n# If set to yes, userdel will remove the user's group if it contains no\n# more members, and useradd will create by default a group with the name\n# of the user.\n#\nUSERGROUPS_ENAB yes\n\n#\n# Instead of the real user shell, the program specified by this parameter\n# will be launched, although its visible name (argv[0]) will be the shell's.\n# The program may do whatever it wants (logging, additional authentification,\n# banner, ...) before running the actual shell.\n#\n# FAKE_SHELL /bin/fakeshell\n\n#\n# If defined, either full pathname of a file containing device names or\n# a \":\" delimited list of device names.  Root logins will be allowed only\n# upon these devices.\n#\n# This variable is used by login and su.\n#\n#CONSOLE\t/etc/consoles\n#CONSOLE\tconsole:tty01:tty02:tty03:tty04\n\n#\n# List of groups to add to the user's supplementary group set\n# when logging in on the console (as determined by the CONSOLE\n# setting).  Default is none.\n#\n# Use with caution - it is possible for users to gain permanent\n# access to these groups, even when not logged in on the console.\n# How to do it is left as an exercise for the reader...\n#\n# This variable is used by login and su.\n#\n#CONSOLE_GROUPS\t\tfloppy:audio:cdrom\n\n#\n# If set to \"yes\", new passwords will be encrypted using the MD5-based\n# algorithm compatible with the one used by recent releases of FreeBSD.\n# It supports passwords of unlimited length and longer salt strings.\n# Set to \"no\" if you need to copy encrypted passwords to other systems\n# which don't understand the new algorithm.  Default is \"no\".\n#\n# This variable is deprecated. You should use ENCRYPT_METHOD.\n#\n#MD5_CRYPT_ENAB\tno\n\n#\n# If set to MD5 , MD5-based algorithm will be used for encrypting password\n# If set to SHA256, SHA256-based algorithm will be used for encrypting password\n# If set to SHA512, SHA512-based algorithm will be used for encrypting password\n# If set to DES, DES-based algorithm will be used for encrypting password (default)\n# Overrides the MD5_CRYPT_ENAB option\n#\n# Note: It is recommended to use a value consistent with\n# the PAM modules configuration.\n#\nENCRYPT_METHOD SHA512\n\n#\n# Only used if ENCRYPT_METHOD is set to SHA256 or SHA512.\n#\n# Define the number of SHA rounds.\n# With a lot of rounds, it is more difficult to brute forcing the password.\n# But note also that it more CPU resources will be needed to authenticate\n# users.\n#\n# If not specified, the libc will choose the default number of rounds (5000).\n# The values must be inside the 1000-999999999 range.\n# If only one of the MIN or MAX values is set, then this value will be used.\n# If MIN > MAX, the highest value will be used.\n#\n# SHA_CRYPT_MIN_ROUNDS 5000\n# SHA_CRYPT_MAX_ROUNDS 5000\n\n################# OBSOLETED BY PAM ##############\n#\t\t\t\t\t\t#\n# These options are now handled by PAM. Please\t#\n# edit the appropriate file in /etc/pam.d/ to\t#\n# enable the equivelants of them.\n#\n###############\n\n#MOTD_FILE\n#DIALUPS_CHECK_ENAB\n#LASTLOG_ENAB\n#MAIL_CHECK_ENAB\n#OBSCURE_CHECKS_ENAB\n#PORTTIME_CHECKS_ENAB\n#SU_WHEEL_ONLY\n#CRACKLIB_DICTPATH\n#PASS_CHANGE_TRIES\n#PASS_ALWAYS_WARN\n#ENVIRON_FILE\n#NOLOGINS_FILE\n#ISSUE_FILE\n#PASS_MIN_LEN\n#PASS_MAX_LEN\n#ULIMIT\n#ENV_HZ\n#CHFN_AUTH\n#CHSH_AUTH\n#FAIL_DELAY\n\n################# OBSOLETED #######################\n#\t\t\t\t\t\t  #\n# These options are no more handled by shadow.    #\n#                                                 #\n# Shadow utilities will display a warning if they #\n# still appear.                                   #\n#                                                 #\n###################################################\n\n# CLOSE_SESSIONS\n# LOGIN_STRING\n# NO_PASSWORD_CONSOLE\n# QMAIL_DIR\n\n\n\nPASS_MIN_LEN    4",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.nft_ruleset",
+      "command": "nft list ruleset",
+      "argv": [
+        "nft",
+        "list",
+        "ruleset"
+      ],
+      "exit_code": 127,
+      "available": false,
+      "stdout": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"nft\": executable file not found in $PATH",
+      "stderr": "",
+      "error": "binary not available on target"
+    },
+    {
+      "command_id": "linux.pwquality",
+      "command": "cat /etc/security/pwquality.conf",
+      "argv": [
+        "cat",
+        "/etc/security/pwquality.conf"
+      ],
+      "exit_code": 1,
+      "available": true,
+      "stdout": "",
+      "stderr": "cat: /etc/security/pwquality.conf: No such file or directory",
+      "error": null
+    },
+    {
+      "command_id": "linux.sshd_config_file",
+      "command": "cat /etc/ssh/sshd_config",
+      "argv": [
+        "cat",
+        "/etc/ssh/sshd_config"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "# This is the sshd server system-wide configuration file.  See\n# sshd_config(5) for more information.\n\n# This sshd was compiled with PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games\n\n# The strategy used for options in the default sshd_config shipped with\n# OpenSSH is to specify options with their default value where\n# possible, but leave them commented.  Uncommented options override the\n# default value.\n\nInclude /etc/ssh/sshd_config.d/*.conf\n\n#Port 22\n#AddressFamily any\n#ListenAddress 0.0.0.0\n#ListenAddress ::\n\n#HostKey /etc/ssh/ssh_host_rsa_key\n#HostKey /etc/ssh/ssh_host_ecdsa_key\n#HostKey /etc/ssh/ssh_host_ed25519_key\n\n# Ciphers and keying\n#RekeyLimit default none\n\n# Logging\n#SyslogFacility AUTH\n#LogLevel INFO\n\n# Authentication:\n\n#LoginGraceTime 2m\n#PermitRootLogin prohibit-password\n#StrictModes yes\n#MaxAuthTries 6\n#MaxSessions 10\n\n#PubkeyAuthentication yes\n\n# Expect .ssh/authorized_keys2 to be disregarded by default in future.\n#AuthorizedKeysFile\t.ssh/authorized_keys .ssh/authorized_keys2\n\n#AuthorizedPrincipalsFile none\n\n#AuthorizedKeysCommand none\n#AuthorizedKeysCommandUser nobody\n\n# For this to work you will also need host keys in /etc/ssh/ssh_known_hosts\n#HostbasedAuthentication no\n# Change to yes if you don't trust ~/.ssh/known_hosts for\n# HostbasedAuthentication\n#IgnoreUserKnownHosts no\n# Don't read the user's ~/.rhosts and ~/.shosts files\n#IgnoreRhosts yes\n\n# To disable tunneled clear text passwords, change to no here!\n#PasswordAuthentication yes\n#PermitEmptyPasswords no\n\n# Change to yes to enable challenge-response passwords (beware issues with\n# some PAM modules and threads)\nKbdInteractiveAuthentication no\n\n# Kerberos options\n#KerberosAuthentication no\n#KerberosOrLocalPasswd yes\n#KerberosTicketCleanup yes\n#KerberosGetAFSToken no\n\n# GSSAPI options\n#GSSAPIAuthentication no\n#GSSAPICleanupCredentials yes\n#GSSAPIStrictAcceptorCheck yes\n#GSSAPIKeyExchange no\n\n# Set this to 'yes' to enable PAM authentication, account processing,\n# and session processing. If this is enabled, PAM authentication will\n# be allowed through the KbdInteractiveAuthentication and\n# PasswordAuthentication.  Depending on your PAM configuration,\n# PAM authentication via KbdInteractiveAuthentication may bypass\n# the setting of \"PermitRootLogin without-password\".\n# If you just want the PAM account and session checks to run without\n# PAM authentication, then enable this but set PasswordAuthentication\n# and KbdInteractiveAuthentication to 'no'.\nUsePAM yes\n\n#AllowAgentForwarding yes\n#AllowTcpForwarding yes\n#GatewayPorts no\nX11Forwarding yes\n#X11DisplayOffset 10\n#X11UseLocalhost yes\n#PermitTTY yes\nPrintMotd no\n#PrintLastLog yes\n#TCPKeepAlive yes\n#PermitUserEnvironment no\n#Compression delayed\n#ClientAliveInterval 0\n#ClientAliveCountMax 3\n#UseDNS no\n#PidFile /run/sshd.pid\n#MaxStartups 10:30:100\n#PermitTunnel no\n#ChrootDirectory none\n#VersionAddendum none\n\n# no default banner path\n#Banner none\n\n# Allow client to pass locale environment variables\nAcceptEnv LANG LC_*\n\n# override default of no subsystems\nSubsystem\tsftp\t/usr/lib/openssh/sftp-server\n\n# Example of overriding settings on a per-user basis\n#Match User anoncvs\n#\tX11Forwarding no\n#\tAllowTcpForwarding no\n#\tPermitTTY no\n#\tForceCommand cvs server\nPermitRootLogin yes\nPasswordAuthentication yes",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.sshd_effective",
+      "command": "sshd -T",
+      "argv": [
+        "sshd",
+        "-T"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "port 22\naddressfamily any\nlistenaddress [::]:22\nlistenaddress 0.0.0.0:22\nusepam yes\nlogingracetime 120\nx11displayoffset 10\nmaxauthtries 6\nmaxsessions 10\nclientaliveinterval 0\nclientalivecountmax 3\nstreamlocalbindmask 0177\npermitrootlogin yes\nignorerhosts yes\nignoreuserknownhosts no\nhostbasedauthentication no\nhostbasedusesnamefrompacketonly no\npubkeyauthentication yes\nkerberosauthentication no\nkerberosorlocalpasswd yes\nkerberosticketcleanup yes\ngssapiauthentication no\ngssapicleanupcredentials yes\ngssapikeyexchange no\ngssapistrictacceptorcheck yes\ngssapistorecredentialsonrekey no\ngssapikexalgorithms gss-group14-sha256-,gss-group16-sha512-,gss-nistp256-sha256-,gss-curve25519-sha256-,gss-group14-sha1-,gss-gex-sha1-\npasswordauthentication yes\nkbdinteractiveauthentication no\nprintmotd no\nprintlastlog yes\nx11forwarding yes\nx11uselocalhost yes\npermittty yes\npermituserrc yes\nstrictmodes yes\ntcpkeepalive yes\npermitemptypasswords no\ncompression yes\ngatewayports no\nusedns no\nallowtcpforwarding yes\nallowagentforwarding yes\ndisableforwarding no\nallowstreamlocalforwarding yes\nstreamlocalbindunlink no\nfingerprinthash SHA256\nexposeauthinfo no\npidfile /run/sshd.pid\nmodulifile /etc/ssh/moduli\nxauthlocation /usr/bin/xauth\nciphers chacha20-poly1305@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com\nmacs umac-64-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha1-etm@openssh.com,umac-64@openssh.com,umac-128@openssh.com,hmac-sha2-256,hmac-sha2-512,hmac-sha1\nbanner none\nforcecommand none\nchrootdirectory none\ntrustedusercakeys none\nrevokedkeys none\nsecuritykeyprovider internal\nauthorizedprincipalsfile none\nversionaddendum none\nauthorizedkeyscommand none\nauthorizedkeyscommanduser none\nauthorizedprincipalscommand none\nauthorizedprincipalscommanduser none\nhostkeyagent none\nkexalgorithms curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,sntrup761x25519-sha512@openssh.com,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha256\ncasignaturealgorithms ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,sk-ssh-ed25519@openssh.com,sk-ecdsa-sha2-nistp256@openssh.com,rsa-sha2-512,rsa-sha2-256\nhostbasedacceptedalgorithms ssh-ed25519-cert-v01@openssh.com,ecdsa-sha2-nistp256-cert-v01@openssh.com,ecdsa-sha2-nistp384-cert-v01@openssh.com,ecdsa-sha2-nistp521-cert-v01@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,sk-ssh-ed25519@openssh.com,sk-ecdsa-sha2-nistp256@openssh.com,rsa-sha2-512,rsa-sha2-256\nhostkeyalgorithms ssh-ed25519-cert-v01@openssh.com,ecdsa-sha2-nistp256-cert-v01@openssh.com,ecdsa-sha2-nistp384-cert-v01@openssh.com,ecdsa-sha2-nistp521-cert-v01@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,sk-ssh-ed25519@openssh.com,sk-ecdsa-sha2-nistp256@openssh.com,rsa-sha2-512,rsa-sha2-256\npubkeyacceptedalgorithms ssh-ed25519-cert-v01@openssh.com,ecdsa-sha2-nistp256-cert-v01@openssh.com,ecdsa-sha2-nistp384-cert-v01@openssh.com,ecdsa-sha2-nistp521-cert-v01@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,sk-ssh-ed25519@openssh.com,sk-ecdsa-sha2-nistp256@openssh.com,rsa-sha2-512,rsa-sha2-256\nloglevel INFO\nsyslogfacility AUTH\nauthorizedkeysfile .ssh/authorized_keys .ssh/authorized_keys2\nhostkey /etc/ssh/ssh_host_rsa_key\nhostkey /etc/ssh/ssh_host_ecdsa_key\nhostkey /etc/ssh/ssh_host_ed25519_key\nacceptenv LANG\nacceptenv LC_*\nauthenticationmethods any\nsubsystem sftp /usr/lib/openssh/sftp-server\nmaxstartups 10:30:100\npersourcemaxstartups none\npersourcenetblocksize 32:128\npermittunnel no\nipqos lowdelay throughput\nrekeylimit 0 0\npermitopen any\npermitlisten any\npermituserenvironment no\npubkeyauthoptions none",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.stat_passwd",
+      "command": "stat -c '%n %a %U %G' /etc/passwd",
+      "argv": [
+        "stat",
+        "-c",
+        "%n %a %U %G",
+        "/etc/passwd"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "/etc/passwd 644 root root",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.stat_shadow",
+      "command": "stat -c '%n %a %U %G' /etc/shadow",
+      "argv": [
+        "stat",
+        "-c",
+        "%n %a %U %G",
+        "/etc/shadow"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "/etc/shadow 644 root shadow",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.sudoers",
+      "command": "cat /etc/sudoers",
+      "argv": [
+        "cat",
+        "/etc/sudoers"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "#\n# This file MUST be edited with the 'visudo' command as root.\n#\n# Please consider adding local content in /etc/sudoers.d/ instead of\n# directly modifying this file.\n#\n# See the man page for details on how to write a sudoers file.\n#\nDefaults\tenv_reset\nDefaults\tmail_badpass\nDefaults\tsecure_path=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin\"\nDefaults\tuse_pty\n\n# This preserves proxy settings from user environments of root\n# equivalent users (group sudo)\n#Defaults:%sudo env_keep += \"http_proxy https_proxy ftp_proxy all_proxy no_proxy\"\n\n# This allows running arbitrary commands, but so does ALL, and it means\n# different sudoers have their choice of editor respected.\n#Defaults:%sudo env_keep += \"EDITOR\"\n\n# Completely harmless preservation of a user preference.\n#Defaults:%sudo env_keep += \"GREP_COLOR\"\n\n# While you shouldn't normally run git as root, you need to with etckeeper\n#Defaults:%sudo env_keep += \"GIT_AUTHOR_* GIT_COMMITTER_*\"\n\n# Per-user preferences; root won't have sensible values for them.\n#Defaults:%sudo env_keep += \"EMAIL DEBEMAIL DEBFULLNAME\"\n\n# \"sudo scp\" or \"sudo rsync\" should be able to use your SSH agent.\n#Defaults:%sudo env_keep += \"SSH_AGENT_PID SSH_AUTH_SOCK\"\n\n# Ditto for GPG agent\n#Defaults:%sudo env_keep += \"GPG_AGENT_INFO\"\n\n# Host alias specification\n\n# User alias specification\n\n# Cmnd alias specification\n\n# User privilege specification\nroot\tALL=(ALL:ALL) ALL\n\n# Members of the admin group may gain root privileges\n%admin ALL=(ALL) ALL\n\n# Allow members of group sudo to execute any command\n%sudo\tALL=(ALL:ALL) ALL\n\n# See sudoers(5) for more information on \"@include\" directives:\n\n@includedir /etc/sudoers.d",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.sudoers_d",
+      "command": "grep -r -h -E NOPASSWD /etc/sudoers.d",
+      "argv": [
+        "grep",
+        "-r",
+        "-h",
+        "-E",
+        "NOPASSWD",
+        "/etc/sudoers.d"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "deploy ALL=(ALL) NOPASSWD: ALL",
+      "stderr": "",
+      "error": null
+    },
+    {
+      "command_id": "linux.ufw_status",
+      "command": "ufw status verbose",
+      "argv": [
+        "ufw",
+        "status",
+        "verbose"
+      ],
+      "exit_code": 127,
+      "available": false,
+      "stdout": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"ufw\": executable file not found in $PATH",
+      "stderr": "",
+      "error": "binary not available on target"
+    },
+    {
+      "command_id": "linux.unattended_upgrades_unit",
+      "command": "systemctl is-enabled unattended-upgrades.service",
+      "argv": [
+        "systemctl",
+        "is-enabled",
+        "unattended-upgrades.service"
+      ],
+      "exit_code": 127,
+      "available": false,
+      "stdout": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"systemctl\": executable file not found in $PATH",
+      "stderr": "",
+      "error": "binary not available on target"
+    },
+    {
+      "command_id": "linux.world_writable",
+      "command": "find /etc /usr/bin /usr/sbin /usr/local/bin -xdev -type f -perm -0002 -print",
+      "argv": [
+        "find",
+        "/etc",
+        "/usr/bin",
+        "/usr/sbin",
+        "/usr/local/bin",
+        "-xdev",
+        "-type",
+        "f",
+        "-perm",
+        "-0002",
+        "-print"
+      ],
+      "exit_code": 0,
+      "available": true,
+      "stdout": "/etc/world-writable-example",
+      "stderr": "",
+      "error": null
+    }
+  ],
+  "notes": [
+    "linux.dnf_automatic_unit: skipped -- binary not available on target",
+    "linux.firewalld_state: skipped -- binary not available on target",
+    "linux.listening_fallback: skipped -- binary not available on target",
+    "linux.nft_ruleset: skipped -- binary not available on target",
+    "linux.ufw_status: skipped -- binary not available on target",
+    "linux.unattended_upgrades_unit: skipped -- binary not available on target",
+    "Command allowlist version 1.0.0; 19 commands executed, all read-only and validated at both import time and execution time."
+  ]
+}
