@@ -15,23 +15,22 @@ export default function Page() {
         <header className="mb-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 font-mono text-xs text-muted-foreground">
             <Terminal className="size-3.5 text-primary" />
-            commands → rules → evidence → fix list
+            commands → rules → llm → fix list
           </div>
           <h1 className="mt-5 max-w-3xl text-balance text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
             CIS Audit Agent
           </h1>
           <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Open a strictly read-only session to a host, run a fixed allowlist of CIS-Benchmark-style
-            checks, and get a prioritized, copy-paste-ready remediation plan. Verdicts come from
-            deterministic parsers, never from a model — every fix traces back to one rule, one
-            command, and that command&rsquo;s real captured output.
+            Connect to a real Linux host over a strictly read-only SSH session, run an allowlist of
+            CIS-Benchmark-style checks, and let an AI analyst turn the raw command output into a
+            prioritized, copy-paste-ready remediation plan — where every fix traces back to real evidence.
           </p>
 
           <dl className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SafetyCard
               icon={Lock}
               title="Read-only, always"
-              body="The agent observes; a deterministic rule engine decides; a human executes the fix. Zero mutating commands run — a mutating command cannot even be defined."
+              body="The agent observes; the LLM explains and ranks; a human executes the fix. Zero mutating commands run."
             />
             <SafetyCard
               icon={ScanLine}

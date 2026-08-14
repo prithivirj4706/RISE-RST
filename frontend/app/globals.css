@@ -4,25 +4,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ---------------------------------------------------------------------------
-   Design system: ui-ux-pro-max, brief "security audit console / live terminal /
-   developer tool", dials variance 4 · motion 4 · density 7.
-
-     style   Dark Mode (OLED) — "code dark + run green"
-     type    JetBrains Mono (terminal / security-tool mood)
-     effects minimal glow, low white emission, high readability, visible focus
-
-   The same palette backs the generated HTML report, so the console and the
-   artifact it produces are visibly one product.
-
-   Deviation: the skill suggests a Google Fonts @import. Fonts are loaded through
-   next/font instead — it self-hosts at build time, so the console does not
-   depend on a CDN at runtime and there is no layout shift.
-
-   Note: the skill's Next.js stack table returned no match for this query, so
-   component-level choices below are not database-backed.
---------------------------------------------------------------------------- */
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -44,127 +25,66 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* verdicts */
   --color-pass: var(--pass);
   --color-fail: var(--fail);
   --color-unknown: var(--unknown);
-
-  /* severity scale — four distinct hues so rank is legible at a glance and
-     never conveyed by position alone */
-  --color-critical: var(--critical);
-  --color-high: var(--high);
-  --color-medium: var(--medium);
-  --color-low: var(--low);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --font-sans: var(--font-jetbrains-mono);
-  --font-mono: var(--font-jetbrains-mono);
-
-  /* motion — dial 4/10: present but never theatrical */
-  --ease-out-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --dur-fast: 150ms;
-  --dur-base: 220ms;
-  --dur-slow: 360ms;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 :root {
   color-scheme: dark;
+  /* Terminal / security-console palette: deep slate base, phosphor-green brand,
+     functional status colors (pass/fail/unknown) that carry meaning, not decoration */
+  --background: oklch(0.16 0.015 240);
+  --foreground: oklch(0.92 0.01 220);
+  --card: oklch(0.2 0.018 240);
+  --card-foreground: oklch(0.92 0.01 220);
+  --popover: oklch(0.2 0.018 240);
+  --popover-foreground: oklch(0.92 0.01 220);
+  --primary: oklch(0.82 0.19 150);
+  --primary-foreground: oklch(0.16 0.02 150);
+  --secondary: oklch(0.26 0.02 240);
+  --secondary-foreground: oklch(0.92 0.01 220);
+  --muted: oklch(0.24 0.018 240);
+  --muted-foreground: oklch(0.65 0.015 230);
+  --accent: oklch(0.26 0.02 240);
+  --accent-foreground: oklch(0.92 0.01 220);
+  --destructive: oklch(0.62 0.22 22);
+  --destructive-foreground: oklch(0.98 0.01 0);
+  --border: oklch(0.3 0.02 240);
+  --input: oklch(0.3 0.02 240);
+  --ring: oklch(0.82 0.19 150);
 
-  --background: #0f172a;
-  --foreground: #f8fafc;
-  --card: #1b2336;
-  --card-foreground: #f8fafc;
-  --popover: #1b2336;
-  --popover-foreground: #f8fafc;
-
-  /* "run green" is the brand and the PASS signal — one accent, used sparingly */
-  --primary: #22c55e;
-  --primary-foreground: #0f172a;
-
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #272f42;
-  --muted-foreground: #94a3b8;
-  --accent: #272f42;
-  --accent-foreground: #f8fafc;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #334155;
-  --input: #334155;
-  --ring: #22c55e;
-
-  --pass: #22c55e;
-  --fail: #ef4444;
-  --unknown: #eab308;
-
-  --critical: #ef4444;
-  --high: #f97316;
-  --medium: #eab308;
-  --low: #38bdf8;
+  --pass: oklch(0.82 0.19 150);
+  --fail: oklch(0.65 0.22 22);
+  --unknown: oklch(0.8 0.16 80);
 
   --radius: 0.5rem;
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
-  /* Skill checklist: focus must be visible for keyboard navigation, and only
-     for keyboard navigation — :focus-visible, not :focus. */
-  :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-    border-radius: var(--radius-sm);
-  }
-  ::selection {
-    background: color-mix(in oklab, var(--primary) 28%, transparent);
-    color: var(--foreground);
-  }
-  /* Terminal panes scroll a lot — keep the scrollbar in the palette. */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-  *::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
-  }
-  *::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 999px;
-  }
-  *::-webkit-scrollbar-thumb:hover {
-    background: var(--muted-foreground);
   }
 }
 
-/* subtle grid texture for the console background */
+/* subtle scanline / grid texture for the console background */
 .console-grid {
   background-image:
-    linear-gradient(to right, color-mix(in oklab, var(--border) 35%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--border) 35%, transparent) 1px, transparent 1px);
+    linear-gradient(to right, oklch(0.3 0.02 240 / 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.3 0.02 240 / 0.35) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
-}
-
-/* "minimal glow" from the style's effect spec — used only on live/active state,
-   never as decoration */
-.glow-primary {
-  text-shadow: 0 0 12px color-mix(in oklab, var(--primary) 55%, transparent);
-}
-.ring-live {
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--primary) 45%, transparent),
-    0 0 18px -4px color-mix(in oklab, var(--primary) 40%, transparent);
 }
 
 @keyframes blink {
@@ -173,40 +93,4 @@
 }
 .cursor-blink {
   animation: blink 1.1s step-end infinite;
-}
-
-/* running-stage pulse — the one continuous animation in the UI */
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
-}
-.pulse-soft {
-  animation: pulse-soft 1.6s var(--ease-out-soft) infinite;
-}
-
-/* new terminal lines enter, they don't pop */
-@keyframes line-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: none; }
-}
-.line-in {
-  animation: line-in var(--dur-base) var(--ease-out-soft) both;
-}
-
-/* Skill checklist: honour prefers-reduced-motion. Everything above degrades to
-   its final state rather than being animated. */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-  .cursor-blink,
-  .pulse-soft {
-    animation: none;
-    opacity: 1;
-  }
 }

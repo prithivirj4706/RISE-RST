@@ -95,19 +95,19 @@ export function AuditConsole() {
     setThinking(isThinking)
   }, [])
 
-
+  const commandsToRun = useMemo(
+    () => [...config.selected, ...config.custom.map((c) => c.trim()).filter(Boolean)],
+    [config.selected, config.custom],
+  )
 
   const validate = useCallback((): string | null => {
-    // Requirements are per-transport: `local` needs nothing at all.
-    if (config.transport === "ssh") {
-      if (!config.host.trim()) return "Enter a host or IP address."
-      if (!config.username.trim()) return "Enter a username."
-    }
-    if (config.transport === "docker" && !config.container.trim()) {
-      return "Enter a container name."
-    }
+    if (!config.host.trim()) return "Enter a host or IP address."
+    if (!config.username.trim()) return "Enter a username."
+    if (config.authMethod === "password" && !config.password) return "Enter a password."
+    if (config.authMethod === "key" && !config.privateKey.trim()) return "Paste a private key."
+    if (commandsToRun.length === 0) return "Select at least one check to run."
     return null
-  }, [config])
+  }, [config, commandsToRun])
 
   const run = useCallback(async () => {
     const invalid = validate()
@@ -137,16 +137,16 @@ export function AuditConsole() {
       const res = await fetch("/api/audit", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        // No credentials and no command list: the engine's allowlist decides
-        // what runs, and key material never leaves the server.
         body: JSON.stringify({
-          transport: config.transport,
+          platform,
           host: config.host,
           port: Number(config.port) || 22,
           username: config.username,
-          keyPath: config.keyPath,
-          container: config.container,
-          insecureHostKey: config.insecureHostKey,
+          authMethod: config.authMethod,
+          password: config.password,
+          privateKey: config.privateKey,
+          passphrase: config.passphrase,
+          commands: commandsToRun,
         }),
       })
       const json = await res.json()
@@ -202,7 +202,7 @@ export function AuditConsole() {
       setStage("rule-engine", "active")
       setProgress(65)
       say(
-        "Deterministic parsers compared each result against CIS best practices. Green means good, red means it needs fixing, yellow means the output was inconclusive — never guessed at.",
+        "The AI analyst compared each result against CIS best practices. Green means good, red means it needs fixing, yellow means the output was inconclusive.",
         "working",
       )
     }, (t += 300))
@@ -241,7 +241,7 @@ export function AuditConsole() {
         "success",
       )
     }, (t += 400))
-  }, [validate, clearTimers, config, platform, push, setStage, say])
+  }, [validate, clearTimers, config, platform, commandsToRun, push, setStage, say])
 
   // Synthesize a PlatformData-shaped object from the live result for the display components.
   const resultData: PlatformData | null = useMemo(() => {
@@ -289,11 +289,8 @@ export function AuditConsole() {
                 {base.meta.benchmark}
               </p>
               <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                {config.transport === "local"
-                  ? "local · no credentials"
-                  : config.transport === "docker"
-                    ? `docker exec · ${config.container.trim() || "no container"}`
-                    : `ssh · key-based · ${config.username.trim() || "no user"}`}
+                {config.authMethod === "key" ? "SSH · key-based" : "SSH · password"} ·{" "}
+                {config.username.trim() || "no user"} · {commandsToRun.length} checks
               </p>
             </div>
           </div>
