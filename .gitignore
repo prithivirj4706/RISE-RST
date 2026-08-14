@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+
+# Audit output: evidence from real hosts, regenerated on every run.
+reports/
+
+# Never commit credentials. Keys and API keys are read from the
+# environment or a path argument, never from a file in this repo.
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+.env

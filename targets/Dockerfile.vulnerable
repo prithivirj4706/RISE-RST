@@ -1,0 +1,35 @@
+# A deliberately misconfigured Linux target.
+# Disposable. Never run this image anywhere reachable.
+FROM ubuntu:22.04
+
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      openssh-server sudo iproute2 \
+ && rm -rf /var/lib/apt/lists/*
+
+# CIS-5.2.10 / CIS-5.2.11 — SSH wide open
+RUN mkdir -p /run/sshd \
+ && printf 'PermitRootLogin yes\nPasswordAuthentication yes\n' >> /etc/ssh/sshd_config
+
+# CIS-6.1.3 — /etc/shadow world-readable
+RUN chmod 644 /etc/shadow
+
+# CIS-6.2.1 — an account with an empty password hash
+RUN useradd -m brokenacct && sed -i 's/^brokenacct:[^:]*:/brokenacct::/' /etc/shadow
+
+# CIS-6.1.10 — a world-writable file in a sensitive path
+RUN touch /etc/world-writable-example && chmod 666 /etc/world-writable-example
+
+# CIS-5.3.4 — blanket NOPASSWD grant
+RUN mkdir -p /etc/sudoers.d \
+ && echo 'deploy ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/90-deploy \
+ && chmod 440 /etc/sudoers.d/90-deploy
+
+# CIS-5.4.1 — weak minimum password length
+# NOTE: Ubuntu 22.04 ships no PASS_MIN_LEN line, and `sed` exits 0 when it
+# matches nothing -- so append unconditionally rather than relying on `||`.
+RUN sed -i '/^PASS_MIN_LEN/d' /etc/login.defs \
+ && echo 'PASS_MIN_LEN    4' >> /etc/login.defs
+
+# CIS-3.2.1 — a service bound to every interface on an unexpected port
+CMD ["/bin/sh", "-c", "nohup sh -c 'while :; do sleep 3600; done' & exec sleep infinity"]
