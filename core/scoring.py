@@ -51,6 +51,7 @@ FAIL_PENALTY: dict[str, int] = {
 }
 
 # UNKNOWN penalty = half the FAIL penalty for the same severity.
+# Integer division is used: 25//2=12, 15//2=7, 8//2=4, 3//2=1
 UNKNOWN_DIVISOR: int = 2
 
 # Starting score before any penalties are applied.
@@ -90,6 +91,55 @@ class ScoreResult:
             f"Score: {self.score}/100  Grade: {self.grade}  "
             f"(PASS={self.pass_count}, FAIL={self.fail_count}, "
             f"UNKNOWN={self.unknown_count})"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Audit summary — deterministic counts per severity/status
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AuditSummary:
+    """
+    Deterministic counts derived from a list of findings.
+
+    Produced by ``build_summary()``.  All values are non-negative integers.
+
+    Attributes
+    ----------
+    total_checks : Total number of findings evaluated.
+    passed       : Findings with status PASS.
+    failed       : Findings with status FAIL.
+    unknown      : Findings with status UNKNOWN.
+    critical     : Findings with severity CRITICAL (any status).
+    high         : Findings with severity HIGH (any status).
+    medium       : Findings with severity MEDIUM (any status).
+    low          : Findings with severity LOW (any status).
+    score        : Final security score (0–100).
+    grade        : Letter-grade label.
+
+    Note: severity counts span all statuses (PASS + FAIL + UNKNOWN).
+    They represent the *gravity distribution* of all checks, not only failures.
+    """
+
+    total_checks: int
+    passed: int
+    failed: int
+    unknown: int
+    critical: int
+    high: int
+    medium: int
+    low: int
+    score: int
+    grade: str
+
+    def __str__(self) -> str:
+        return (
+            f"Checks: {self.total_checks}  "
+            f"PASS={self.passed}  FAIL={self.failed}  UNKNOWN={self.unknown}  "
+            f"| CRITICAL={self.critical}  HIGH={self.high}  "
+            f"MEDIUM={self.medium}  LOW={self.low}  "
+            f"| Score: {self.score}/100  Grade: {self.grade}"
         )
 
 
@@ -151,6 +201,67 @@ def calculate_score(findings: list[Finding]) -> ScoreResult:
         unknown_count=unknown_count,
         breakdown=breakdown,
         grade=_letter_grade(final_score),
+    )
+
+
+def calculate_score_int(findings: list[Finding]) -> int:
+    """
+    Convenience wrapper: return only the integer score (0–100).
+
+    Identical algorithm to ``calculate_score``; useful when callers
+    only need the numeric result without the full breakdown.
+
+    Penalty rules (FAIL):
+        CRITICAL → 100 - 25 = 75
+        HIGH     → 100 - 15 = 85
+        MEDIUM   → 100 - 8  = 92
+        LOW      → 100 - 3  = 97
+
+    Penalty rules (UNKNOWN, integer floor division by 2):
+        CRITICAL → 100 - 12 = 88
+        HIGH     → 100 - 7  = 93
+        MEDIUM   → 100 - 4  = 96
+        LOW      → 100 - 1  = 99
+    """
+    return calculate_score(findings).score
+
+
+def build_summary(findings: list[Finding], score: int) -> AuditSummary:
+    """
+    Build a structured count summary from a list of findings.
+
+    Parameters
+    ----------
+    findings : list[Finding]
+        All findings from the audit run.
+    score : int
+        Pre-computed security score (0–100).
+
+    Returns
+    -------
+    AuditSummary
+        Deterministic counts and the score.
+    """
+    passed  = sum(1 for f in findings if f.status == "PASS")
+    failed  = sum(1 for f in findings if f.status == "FAIL")
+    unknown = sum(1 for f in findings if f.status == "UNKNOWN")
+
+    critical = sum(1 for f in findings if f.severity == "CRITICAL")
+    high     = sum(1 for f in findings if f.severity == "HIGH")
+    medium   = sum(1 for f in findings if f.severity == "MEDIUM")
+    low      = sum(1 for f in findings if f.severity == "LOW")
+
+    return AuditSummary(
+        total_checks=len(findings),
+        passed=passed,
+        failed=failed,
+        unknown=unknown,
+        critical=critical,
+        high=high,
+        medium=medium,
+        low=low,
+        score=score,
+        grade=_letter_grade(score),
     )
 
 
