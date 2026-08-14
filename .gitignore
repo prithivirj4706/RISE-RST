@@ -30,7 +30,13 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Reports output (keep the directory, ignore generated files)
+# Reports output (keep the directory, ignore generated files).
+# The ** forms matter: audits written with --out reports/<subdir> would
+# otherwise escape these patterns and could commit evidence from a real host.
+reports/**/*.json
+reports/**/*.html
+reports/**/*.txt
+reports/**/*.md
 reports/*.json
 reports/*.html
 reports/*.txt
