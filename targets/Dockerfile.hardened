@@ -1,0 +1,18 @@
+# A hardened Linux target: should pass most rules.
+FROM ubuntu:22.04
+
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      openssh-server sudo iproute2 \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /run/sshd \
+ && printf 'PermitRootLogin no\nPasswordAuthentication no\n' >> /etc/ssh/sshd_config \
+ && chown root:shadow /etc/shadow && chmod 640 /etc/shadow \
+ && chown root:root /etc/passwd && chmod 644 /etc/passwd \
+ && sed -i '/^PASS_MIN_LEN/d' /etc/login.defs \
+ && echo 'PASS_MIN_LEN    14' >> /etc/login.defs \
+ && printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' \
+      > /etc/apt/apt.conf.d/20auto-upgrades
+
+CMD ["sleep", "infinity"]

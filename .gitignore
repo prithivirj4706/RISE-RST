@@ -41,3 +41,11 @@ reports/*.md
 .idea/
 *.swp
 *.swo
+
+# Credentials are NEVER committed. SSH keys arrive as a path argument
+# (--key / SENTINEL_SSH_KEY) and API keys from the environment only.
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+.env
