@@ -15,6 +15,7 @@ import json
 import os
 from datetime import datetime, timezone
 
+from .html_reporter import write_html
 from .models import FAIL, PASS, UNKNOWN, AuditReport, Finding
 
 SCHEMA_VERSION = "1.0"
@@ -200,14 +201,18 @@ def render_markdown(report: AuditReport, feeds: dict[str, list[str]]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def save(report: AuditReport, feeds: dict[str, list[str]], out_dir: str) -> tuple[str, str]:
+def save(report: AuditReport, feeds: dict[str, list[str]],
+         out_dir: str) -> tuple[str, str, str]:
+    """Write report.json, report.md and a self-contained report.html."""
     os.makedirs(out_dir, exist_ok=True)
     slug = timestamp_slug()
     json_path = os.path.join(out_dir, f"audit_{slug}.json")
     md_path = os.path.join(out_dir, f"audit_{slug}.md")
+    html_path = os.path.join(out_dir, f"audit_{slug}.html")
     write_json(report, json_path)
     write_markdown(report, md_path, feeds)
-    return json_path, md_path
+    write_html(report, html_path, feeds)
+    return json_path, md_path, html_path
 
 
 def latest_report(out_dir: str, exclude: str | None = None) -> str | None:

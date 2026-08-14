@@ -176,7 +176,7 @@ def cmd_compare(prev: str, curr: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _print_summary(report, out_paths: tuple[str, str]) -> None:
+def _print_summary(report, out_paths: tuple[str, ...]) -> None:
     summary = report.summary
     score = report.score
     by_sev = summary["failed_by_severity"]
@@ -212,7 +212,10 @@ def _print_summary(report, out_paths: tuple[str, str]) -> None:
 
     print(f"\n  fingerprint : {report.fingerprint}")
     print(f"  json        : {out_paths[0]}")
-    print(f"  markdown    : {out_paths[1]}\n")
+    print(f"  markdown    : {out_paths[1]}")
+    if len(out_paths) > 2:
+        print(f"  html        : {out_paths[2]}")
+    print()
 
 
 def run(args: argparse.Namespace) -> int:
